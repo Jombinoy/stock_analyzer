@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multibagger Stock Analyzer</title>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Custom column colors */
+        .symbol-column { background-color: #e0f7fa; }
+        .price-column { background-color: #ffe0b2; }
+        .market-cap-column { background-color: #f1f8e9; }
+        .growth-column { background-color: #fce4ec; }
+        .roe-column { background-color: #e1bee7; }
+        .margins-column { background-color: #fff3e0; }
+        .debt-column { background-color: #f0f4c3; }
+        .returns-column { background-color: #bbdefb; }
+        .volume-column { background-color: #d1c4e9; }
+        .price-level-column { background-color: #c8e6c9; }
+        .volatility-column { background-color: #f8bbd0; }
+        .score-column { background-color: #fff9c4; }
+        .category-column { background-color: #e0e0e0; }
+
+        /* Loading indicator styles */
+        .loading-indicator {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress-circle {
+            position: relative;
+            width: 128px;
+            height: 128px;
+            margin: 20px auto;
+        }
+
+        .circle {
+            transform: rotate(-90deg);
+        }
+
+        .background {
+            fill: transparent;
+            stroke: #e0e0e0;
+            stroke-width: 8;
+        }
+
+        .progress {
+            fill: transparent;
+            stroke: #007bff;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.3s;
+        }
+
+        .percentage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .icons {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .icon {
+            font-size: 24px;
+            margin: 0 10px;
+            animation: bounce 1s infinite;
+        }
+
+        .icon:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .icon:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto py-8">
+        <h1 class="text-4xl font-bold mb-6 text-center text-indigo-600">Multibagger Stock Analyzer</h1>
+        <div class="bg-white shadow-lg rounded-lg p-6 card">
+            <div class="mb-4">
+                <label for="investment-amount" class="block font-medium mb-2 text-gray-700">Investment Amount:</label>
+                <input type="number" id="investment-amount" class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="Enter investment amount" value="100000">
+            </div>
+            <div class="flex justify-between">
+                <button id="analyze-button" class="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-105">
+                    <i class="fas fa-chart-line"></i> Analyze Stocks
+                </button>
+                
+                <button id="view-results-button" class="mt-0 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-105">
+                    <i class="fas fa-eye"></i> View Results
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="mt-4">
+                <input type="text" id="search-input" class="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" placeholder="Search by Symbol..." oninput="filterResults()">
+            </div>
+
+            <div class="mt-8 fade-in" id="results-container" style="display: none;">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Results</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto border-collapse border border-gray-300">
+                        <thead id="results-table-head">
+                            <!-- Table headers will be dynamically inserted here -->
+                        </thead>
+                        <tbody id="results-table-body">
+                            <!-- Results will be dynamically injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="loading-indicator" style="display: none;">
+        <div class="loading-content">
+            <div class="title">
+                <h3 class="text-xl font-semibold">Analyzing Stocks</h3>
+                <p class="text-sm text-gray-600">Please wait while we crunch the numbers</p>
+            </div>
+            <div class="progress-circle">
+                <svg class="circle" viewBox="0 0 128 128">
+                    <circle class="background" cx="64" cy="64" r="58" />
+                    <circle class="progress" cx="64" cy="64" r="58" />
+                </svg>
+                <div class="percentage">
+                    <span id="progress-text">0%</span>
+                </div>
+            </div>
+            <div class="icons">
+                <span class="icon trending-up">📈</span>
+                <span class="icon bar-chart">📊</span>
+                <span class="icon activity">🔄</span>
+            </div>
+            <div class="status">
+                <p class="text-sm text-gray-600">Scanning market data...</p>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const investmentAmountInput = document.getElementById('investment-amount');
+    const analyzeButton = document.getElementById('analyze-button');
+    const viewResultsButton = document.getElementById('view-results-button');
+    const resultsContainer = document.getElementById('results-container');
+    const resultsTableHead = document.getElementById('results-table-head');
+    const resultsTableBody = document.getElementById('results-table-body');
+    const searchInput = document.getElementById('search-input');
+    const loadingIndicator = document.getElementById('loading-indicator');
+
+    const columnOrder = [
+        'Symbol', 'Current_Price', 'Market_Cap_Cr', 'Revenue_Growth', 'Earnings_Growth',
+        'ROE', 'Operating_Margins', 'Debt_To_Equity', 'Returns_1Y', 'Returns_3Y',
+        'Volume_Ratio', 'Price_Level', 'Volatility', 'Multibagger_Score', 'Potential_Category'
+    ];
+
+    let allResults = []; // Store all results for filtering
+    let progress = 0;
+    const progressText = document.getElementById('progress-text');
+    const progressCircle = document.querySelector('.progress');
+    let interval;
+
+    const updateProgress = () => {
+        progress = (progress + 1) % 100;
+        progressText.textContent = `${progress}%`;
+        const radius = 58;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (circumference * progress) / 100;
+        progressCircle.style.strokeDasharray = `${circumference}`;
+        progressCircle.style.strokeDashoffset = `${offset}`;
+    };
+
+    analyzeButton.addEventListener('click', async () => {
+        console.log("Analyze button clicked");
+        
+        const investmentAmount = parseFloat(investmentAmountInput.value);
+        
+        if (isNaN(investmentAmount) || investmentAmount <= 0) {
+            alert('Please enter a valid investment amount.');
+            return;
+        }
+
+        // Show loading indicator
+        loadingIndicator.style.display = 'flex';
+        progress = 0;
+        interval = setInterval(updateProgress, 30);
+
+        try {
+            const response = await fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ investmentAmount })
+            });
+
+            console.log("Response received");
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const results = await response.json();
+            console.log('Raw Results:', results);
+
+            // Hide loading indicator
+            clearInterval(interval);
+            loadingIndicator.style.display = 'none';
+
+            if (Array.isArray(results) && results.length > 0) {
+                console.log('First result item:', results[0]);
+                
+                // Store all results for filtering
+                allResults = results;
+
+                resultsTableHead.innerHTML = '<tr class="bg-gray-200">' + 
+                    columnOrder.map((key, index) => {
+                        const columnClass = getColumnClass(index);
+                        return `<th class="px-4 py-2 border border-gray-300 text-center font-semibold text-gray-700 ${columnClass}">${key.replace(/_/g, ' ')}</th>`;
+                    }).join('') + 
+                    '</tr>';
+                
+                resultsTableBody.innerHTML = results.map((stock, index) => 
+                    `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">` + 
+                    columnOrder.map((key, colIndex) => {
+                        let value = stock[key];
+                        if (value === undefined || value === null) {
+                            value = 'N/A';
+                        } else if (typeof value === 'number') {
+                            value = value.toFixed(2);
+                        }
+                        const columnClass = getColumnClass(colIndex);
+                        return `<td class="px-4 py-2 border border-gray-300 text-center ${columnClass}">${value}</td>`;
+                    }).join('') + '</tr>'
+                ).join('');
+                
+                resultsContainer.classList.add('fade-in');
+                resultsContainer.style.display = 'block';
+            } else {
+                alert('No results found.');
+                resultsContainer.style.display = 'none';
+            }
+        } catch (error) {
+            // Hide loading indicator on error
+            clearInterval(interval);
+            loadingIndicator.style.display = 'none';
+
+            console.error('Error fetching results:', error);
+            alert(`An error occurred while fetching the results: ${error.message}`);
+        }
+    });
+
+    viewResultsButton.addEventListener('click', () => {
+        resultsContainer.style.display = resultsContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+    function filterResults() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const filteredResults = allResults.filter(stock => 
+            stock.Symbol.toLowerCase().includes(searchTerm)
+        );
+
+        resultsTableBody.innerHTML = filteredResults.map((stock, index) => 
+            `<tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">` + 
+            columnOrder.map((key, colIndex) => {
+                let value = stock[key];
+                if (value === undefined || value === null) {
+                    value = 'N/A';
+                } else if (typeof value === 'number') {
+                    value = value.toFixed(2);
+                }
+                const columnClass = getColumnClass(colIndex);
+                return `<td class="px-4 py-2 border border-gray-300 text-center ${columnClass}">${value}</td>`;
+            }).join('') + '</tr>'
+        ).join('');
+    }
+
+    function getColumnClass(index) {
+        switch (index) {
+            case 0: return 'symbol-column';
+            case 1: return 'price-column';
+            case 2: return 'market-cap-column';
+            case 3: return 'growth-column';
+            case 4: return 'growth-column';
+            case 5: return 'roe-column';
+            case 6: return 'margins-column';
+            case 7: return 'debt-column';
+            case 8: return 'returns-column';
+            case 9: return 'returns-column';
+            case 10: return 'volume-column';
+            case 11: return 'price-level-column';
+            case 12: return 'volatility-column';
+            case 13: return 'score-column';
+            case 14: return 'category-column';
+            default: return '';
+        }
+    }
+</script>
+
+</body>
+</html>
